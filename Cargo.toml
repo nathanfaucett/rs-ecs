@@ -14,7 +14,7 @@ homepage = "https://github.com/nathanfaucett/rs-ecs"
 uuid = { version = "0.3", features = ["v4"] }
 atomic = {git = "https://github.com/nathanfaucett/rs-atomic"}
 impl_any = {git = "https://github.com/nathanfaucett/rs-impl_any"}
-thread_pool = {path = "../rs-thread_pool"}
+thread_pool = {git = "https://github.com/nathanfaucett/rs-thread_pool"}
 
 [dev-dependencies]
 num_cpus = { version = "1.2" }
