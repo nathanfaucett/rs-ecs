@@ -1,32 +1,37 @@
-#![feature(test)]
-#![feature(raw)]
 #![feature(get_type_id)]
 
 
-extern crate uuid;
-extern crate atomic;
-extern crate thread_pool;
 #[macro_use]
 extern crate impl_any;
+extern crate uuid;
+extern crate thread_pool;
 
 
-mod entity_manager;
+mod component;
+mod components;
+mod entities;
 mod entity;
 
 mod hierarchy;
 
+mod manager;
+
 mod process;
-mod process_manager;
+mod processes;
 
 mod scene;
 
 
-pub use entity_manager::EntityManager;
+pub use component::Component;
+pub use components::Components;
+pub use entities::Entities;
 pub use entity::Entity;
 
 pub use hierarchy::Hierarchy;
 
+pub use manager::*;
+
 pub use process::Process;
-pub use process_manager::ProcessManager;
+pub use processes::Processes;
 
 pub use scene::Scene;

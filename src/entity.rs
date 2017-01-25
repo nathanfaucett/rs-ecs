@@ -55,19 +55,19 @@ mod test {
             }));
         }
 
-        let mut entity_manager = Vec::with_capacity(SIZE * threads);
+        let mut entities = Vec::with_capacity(SIZE * threads);
         for handle in handles {
             for entity in handle.join().unwrap() {
-                entity_manager.push(entity);
+                entities.push(entity);
             }
         }
 
         thread::spawn(move || {
-            for i in 0..entity_manager.len() {
+            for i in 0..entities.len() {
                 let mut j = 0;
 
                 while j != i {
-                    assert_ne!(entity_manager[i], entity_manager[j]);
+                    assert_ne!(entities[i], entities[j]);
                     j += 1;
                 }
             }
