@@ -16,12 +16,12 @@ impl Entities {
             entities: HashSet::new(),
         }
     }
-    pub fn new_entity(&mut self) -> Entity {
+    pub fn create(&mut self) -> Entity {
         let entity = Entity::new();
         self.entities.insert(entity);
         entity
     }
-    pub fn remove_entity(&mut self, entity: &Entity) -> bool {
+    pub fn remove(&mut self, entity: &Entity) -> bool {
         self.entities.remove(entity)
     }
     pub fn is_alive(&self, entity: &Entity) -> bool {
@@ -37,9 +37,9 @@ mod test {
     #[test]
     fn test_entities() {
         let mut entities = Entities::new();
-        let entity = entities.new_entity();
+        let entity = entities.create();
         assert!(entities.is_alive(&entity));
-        assert!(entities.remove_entity(&entity));
+        assert!(entities.remove(&entity));
         assert!(!entities.is_alive(&entity));
     }
 }

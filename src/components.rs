@@ -22,8 +22,10 @@ impl Components {
     }
 
     pub fn register<T: Component>(&mut self) {
-        let type_id = TypeId::of::<T>();
-        self.managers.insert(type_id, Box::new(RwLock::new(MaskedManager::<T>::new())));
+        self.managers.insert(
+            TypeId::of::<T>(),
+            Box::new(RwLock::new(MaskedManager::<T>::new()))
+        );
     }
     pub fn unregister<T: Component>(&mut self) {
         self.managers.remove(&TypeId::of::<T>());
@@ -82,7 +84,7 @@ mod test {
     fn test_components() {
         let mut components = Components::new();
         let mut entities = Entities::new();
-        let entity = entities.new_entity();
+        let entity = entities.create();
 
         components.register::<SomeComponent>();
         components.insert(entity.clone(), SomeComponent);
