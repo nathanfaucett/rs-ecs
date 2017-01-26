@@ -3,6 +3,8 @@ use std::collections::{hash_map, HashMap};
 use std::sync::{Arc, RwLock};
 
 use process::Process;
+use components::Components;
+use entities::Entities;
 
 
 pub struct Processes {
@@ -117,15 +119,15 @@ impl<'a> Iterator for IterMut<'a> {
 
 
 pub trait ProcessLock: Any + Send + Sync {
-    fn run(&mut self);
+    fn run(&mut self, &RwLock<Components>, &RwLock<Entities>);
     fn clone_(&self) -> Box<ProcessLock>;
 }
 
 impl_any!(ProcessLock);
 
 impl<T: Process> ProcessLock for Arc<RwLock<T>> {
-    fn run(&mut self) {
-        self.write().unwrap().run();
+    fn run(&mut self, components: &RwLock<Components>, entities: &RwLock<Entities>) {
+        self.write().unwrap().run(components, entities);
     }
     fn clone_(&self) -> Box<ProcessLock> {
         Box::new(self.clone())
@@ -135,14 +137,18 @@ impl<T: Process> ProcessLock for Arc<RwLock<T>> {
 
 #[cfg(test)]
 mod test {
+    use std::sync::RwLock;
+    
     use super::*;
+    use components::Components;
+    use entities::Entities;
 
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct SomeProcess;
 
     impl Process for SomeProcess {
-        fn run(&mut self) {}
+        fn run(&mut self, _: &RwLock<Components>, _: &RwLock<Entities>) {}
     }
 
 
