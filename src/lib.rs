@@ -4,6 +4,7 @@
 #[macro_use]
 extern crate impl_any;
 extern crate uuid;
+extern crate waiter;
 extern crate thread_pool;
 
 

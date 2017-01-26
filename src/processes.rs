@@ -1,6 +1,6 @@
 use std::any::{Any, TypeId};
-use std::collections::{hash_map, HashMap};
 use std::sync::{Arc, RwLock};
+use std::slice;
 
 use process::Process;
 use components::Components;
@@ -8,7 +8,7 @@ use entities::Entities;
 
 
 pub struct Processes {
-    processes: HashMap<TypeId, Box<ProcessLock>>,
+    processes: Vec<(TypeId, Box<ProcessLock>)>,
 }
 
 unsafe impl Send for Processes {}
@@ -17,28 +17,41 @@ unsafe impl Sync for Processes {}
 impl Processes {
     pub fn new() -> Self {
         Processes {
-            processes: HashMap::new(),
+            processes: Vec::new(),
         }
     }
 
     pub fn len(&self) -> usize {
         self.processes.len()
     }
+    pub fn sort(&mut self) {
+        self.processes.sort_by(|&(_, ref a), &(_, ref b)| {
+            a.priority().cmp(&b.priority())
+        });
+    }
 
+    #[inline]
+    fn index_of(&self, type_id: &TypeId) -> Option<usize> {
+        self.processes.iter().position(|&(t, _)| &t == type_id)
+    }
     pub fn process<T: Process>(&self) -> Option<&Arc<RwLock<T>>> {
-        match self.processes.get(&TypeId::of::<T>()) {
-            Some(process_lock) => Some(unsafe {
-                process_lock.downcast_ref_unchecked::<Arc<RwLock<T>>>()
+        match self.index_of(&TypeId::of::<T>()) {
+            Some(index) => Some(unsafe {
+                let &(_, ref process) = self.processes.get_unchecked(index);
+                process.downcast_ref_unchecked::<Arc<RwLock<T>>>()
             }),
             None => None,
         }
     }
     pub fn contains<T: Process>(&self) -> bool {
-        self.processes.contains_key(&TypeId::of::<T>())
+        self.index_of(&TypeId::of::<T>()).is_some()
     }
 
     pub fn insert<T: Process>(&mut self, process: T) {
-        self.processes.insert(TypeId::of::<T>(), Box::new(Arc::new(RwLock::new(process))));
+        self.processes.push((
+            TypeId::of::<T>(),
+            Box::new(Arc::new(RwLock::new(process)))
+        ));
     }
     pub fn remove<T: Process>(&mut self) -> Option<T> {
         match self.remove_by_type_id(&TypeId::of::<T>()) {
@@ -55,13 +68,19 @@ impl Processes {
         }
     }
     pub fn remove_by_type_id(&mut self, type_id: &TypeId) -> Option<Box<ProcessLock>> {
-        self.processes.remove(&type_id)
+        match self.index_of(type_id) {
+            Some(index) => {
+                let (_type_id, process) = self.processes.remove(index);
+                Some(process)
+            },
+            None => None,
+        }
     }
 
-    pub fn raw(&self) -> &HashMap<TypeId, Box<ProcessLock>> {
+    pub fn raw(&self) -> &Vec<(TypeId, Box<ProcessLock>)> {
         &self.processes
     }
-    pub fn raw_mut(&mut self) -> &mut HashMap<TypeId, Box<ProcessLock>> {
+    pub fn raw_mut(&mut self) -> &mut Vec<(TypeId, Box<ProcessLock>)> {
         &mut self.processes
     }
 
@@ -75,10 +94,10 @@ impl Processes {
 
 
 pub struct Iter<'a> {
-    iter: hash_map::Iter<'a, TypeId, Box<ProcessLock>>,
+    iter: slice::Iter<'a, (TypeId, Box<ProcessLock>)>,
 }
 impl<'a> Iter<'a> {
-    fn new(iter: hash_map::Iter<'a, TypeId, Box<ProcessLock>>) -> Self {
+    fn new(iter: slice::Iter<'a, (TypeId, Box<ProcessLock>)>) -> Self {
         Iter {
             iter: iter,
         }
@@ -89,7 +108,7 @@ impl<'a> Iterator for Iter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
-            Some((_type_id, next)) => Some(next.clone_()),
+            Some(&(_, ref next)) => Some(next.clone_()),
             None => None,
         }
     }
@@ -97,10 +116,10 @@ impl<'a> Iterator for Iter<'a> {
 
 
 pub struct IterMut<'a> {
-    iter: hash_map::IterMut<'a, TypeId, Box<ProcessLock>>,
+    iter: slice::IterMut<'a, (TypeId, Box<ProcessLock>)>,
 }
 impl<'a> IterMut<'a> {
-    fn new(iter: hash_map::IterMut<'a, TypeId, Box<ProcessLock>>) -> Self {
+    fn new(iter: slice::IterMut<'a, (TypeId, Box<ProcessLock>)>) -> Self {
         IterMut {
             iter: iter,
         }
@@ -111,7 +130,7 @@ impl<'a> Iterator for IterMut<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
-            Some((_type_id, next)) => Some(next.clone_()),
+            Some(&mut (_, ref next)) => Some(next.clone_()),
             None => None,
         }
     }
@@ -121,6 +140,7 @@ impl<'a> Iterator for IterMut<'a> {
 pub trait ProcessLock: Any + Send + Sync {
     fn run(&mut self, &RwLock<Components>, &RwLock<Entities>);
     fn clone_(&self) -> Box<ProcessLock>;
+    fn priority(&self) -> usize;
 }
 
 impl_any!(ProcessLock);
@@ -132,13 +152,16 @@ impl<T: Process> ProcessLock for Arc<RwLock<T>> {
     fn clone_(&self) -> Box<ProcessLock> {
         Box::new(self.clone())
     }
+    fn priority(&self) -> usize {
+        self.read().unwrap().priority()
+    }
 }
 
 
 #[cfg(test)]
 mod test {
     use std::sync::RwLock;
-    
+
     use super::*;
     use components::Components;
     use entities::Entities;

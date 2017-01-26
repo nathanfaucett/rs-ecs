@@ -12,6 +12,7 @@ homepage = "https://github.com/nathanfaucett/rs-ecs"
 
 [dependencies]
 uuid = { version = "0.3", features = ["v4"] }
+waiter = {git = "https://github.com/nathanfaucett/rs-waiter"}
 impl_any = {git = "https://github.com/nathanfaucett/rs-impl_any"}
 thread_pool = {git = "https://github.com/nathanfaucett/rs-thread_pool"}
 

@@ -6,5 +6,10 @@ use entities::Entities;
 
 
 pub trait Process: Any + Send + Sync {
+    
     fn run(&mut self, &RwLock<Components>, &RwLock<Entities>);
+
+    fn priority(&self) -> usize {
+        0usize
+    }
 }
