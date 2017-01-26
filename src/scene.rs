@@ -1,3 +1,7 @@
+use std::thread;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use thread_pool::ThreadPool;
 
 use components::Components;
@@ -35,11 +39,22 @@ impl Scene {
     pub fn processes_mut(&mut self) -> &mut Processes { &mut self.processes }
 
     pub fn update(&mut self) -> &Self {
+        let current_thread = Arc::new(thread::current());
+        let count = Arc::new(AtomicUsize::new(self.processes.len()));
 
         for mut process in self.processes.iter_mut() {
+            let current_thread = current_thread.clone();
+            let count = count.clone();
+
             let _ = self.thread_pool.run(move || {
                 process.run();
+                count.fetch_sub(1, Ordering::Relaxed);
+                current_thread.unpark();
             });
+        }
+
+        while count.load(Ordering::Relaxed) != 0 {
+            thread::park();
         }
 
         self
@@ -53,22 +68,37 @@ mod test {
     use process::Process;
 
 
-    #[derive(Debug, Eq, PartialEq)]
-    pub struct SomeProcess;
-
-    impl Process for SomeProcess {
-        fn run(&mut self) {}
+    macro_rules! create_process {
+        ($name: ident) => (
+            #[derive(Debug, Eq, PartialEq)]
+            pub struct $name {
+                done: bool,
+            }
+            impl Process for $name {
+                fn run(&mut self) {
+                    self.done = true;
+                }
+            }
+        );
     }
+
+    create_process!(Process0);
+    create_process!(Process1);
+    create_process!(Process2);
 
 
     #[test]
     fn test_scene() {
         let mut scene = Scene::new();
 
-        for _ in 0..32{
-            scene.processes_mut().insert(SomeProcess);
-        }
+        scene.processes_mut().insert(Process0 {done: false});
+        scene.processes_mut().insert(Process1 {done: false});
+        scene.processes_mut().insert(Process2 {done: false});
 
         scene.update();
+
+        assert!(scene .processes().process::<Process0>().unwrap() .read().unwrap().done);
+        assert!(scene .processes().process::<Process1>().unwrap() .read().unwrap().done);
+        assert!(scene .processes().process::<Process2>().unwrap() .read().unwrap().done);
     }
 }

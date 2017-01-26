@@ -23,7 +23,15 @@ impl Processes {
         self.processes.len()
     }
 
-    pub fn contains<T: Process>(&mut self) -> bool {
+    pub fn process<T: Process>(&self) -> Option<&Arc<RwLock<T>>> {
+        match self.processes.get(&TypeId::of::<T>()) {
+            Some(process_lock) => Some(unsafe {
+                process_lock.downcast_ref_unchecked::<Arc<RwLock<T>>>()
+            }),
+            None => None,
+        }
+    }
+    pub fn contains<T: Process>(&self) -> bool {
         self.processes.contains_key(&TypeId::of::<T>())
     }
 
@@ -31,25 +39,57 @@ impl Processes {
         self.processes.insert(TypeId::of::<T>(), Box::new(Arc::new(RwLock::new(process))));
     }
     pub fn remove<T: Process>(&mut self) -> Option<T> {
-        None
-        /*
         match self.remove_by_type_id(&TypeId::of::<T>()) {
-            Some(process_lock) => match unsafe {
-                process_lock.downcast_unchecked::<RwLock<T>>().into_inner()
-            } {
-                Ok(process) => Some(process),
+            Some(process_lock) => match Arc::try_unwrap(unsafe {
+                *process_lock.downcast_unchecked::<Arc<RwLock<T>>>()
+            }) {
+                Ok(rwlock) => match rwlock.into_inner() {
+                    Ok(process) => Some(process),
+                    Err(..) => None,
+                },
                 Err(..) => None,
             },
             None => None,
         }
-        */
     }
     pub fn remove_by_type_id(&mut self, type_id: &TypeId) -> Option<Box<ProcessLock>> {
         self.processes.remove(&type_id)
     }
 
+    pub fn raw(&self) -> &HashMap<TypeId, Box<ProcessLock>> {
+        &self.processes
+    }
+    pub fn raw_mut(&mut self) -> &mut HashMap<TypeId, Box<ProcessLock>> {
+        &mut self.processes
+    }
+
+    pub fn iter(&mut self) -> Iter {
+        Iter::new(self.processes.iter())
+    }
     pub fn iter_mut(&mut self) -> IterMut {
         IterMut::new(self.processes.iter_mut())
+    }
+}
+
+
+pub struct Iter<'a> {
+    iter: hash_map::Iter<'a, TypeId, Box<ProcessLock>>,
+}
+impl<'a> Iter<'a> {
+    fn new(iter: hash_map::Iter<'a, TypeId, Box<ProcessLock>>) -> Self {
+        Iter {
+            iter: iter,
+        }
+    }
+}
+impl<'a> Iterator for Iter<'a> {
+    type Item = Box<ProcessLock>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some((_type_id, next)) => Some(next.clone_()),
+            None => None,
+        }
     }
 }
 
@@ -57,7 +97,6 @@ impl Processes {
 pub struct IterMut<'a> {
     iter: hash_map::IterMut<'a, TypeId, Box<ProcessLock>>,
 }
-
 impl<'a> IterMut<'a> {
     fn new(iter: hash_map::IterMut<'a, TypeId, Box<ProcessLock>>) -> Self {
         IterMut {
@@ -65,7 +104,6 @@ impl<'a> IterMut<'a> {
         }
     }
 }
-
 impl<'a> Iterator for IterMut<'a> {
     type Item = Box<ProcessLock>;
 
@@ -113,7 +151,7 @@ mod test {
         let mut processes = Processes::new();
         processes.insert(SomeProcess);
 
-        //let process = processes.remove::<SomeProcess>().unwrap();
-        //assert_eq!(process, SomeProcess);
+        let process = processes.remove::<SomeProcess>().unwrap();
+        assert_eq!(process, SomeProcess);
     }
 }
