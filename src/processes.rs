@@ -2,9 +2,8 @@ use std::any::{Any, TypeId};
 use std::sync::{Arc, RwLock};
 use std::slice;
 
-use process::Process;
-use components::Components;
-use entities::Entities;
+use super::process::Process;
+use super::entity_manager::EntityManager;
 
 
 pub struct Processes {
@@ -15,15 +14,18 @@ unsafe impl Send for Processes {}
 unsafe impl Sync for Processes {}
 
 impl Processes {
+    #[inline]
     pub fn new() -> Self {
         Processes {
             processes: Vec::new(),
         }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.processes.len()
     }
+    #[inline]
     pub fn sort(&mut self) {
         self.processes.sort_by(|&(_, ref a), &(_, ref b)| {
             a.priority().cmp(&b.priority())
@@ -43,10 +45,12 @@ impl Processes {
             None => None,
         }
     }
+    #[inline]
     pub fn contains<T: Process>(&self) -> bool {
         self.index_of(&TypeId::of::<T>()).is_some()
     }
 
+    #[inline]
     pub fn insert<T: Process>(&mut self, process: T) {
         self.processes.push((
             TypeId::of::<T>(),
@@ -77,16 +81,20 @@ impl Processes {
         }
     }
 
+    #[inline]
     pub fn raw(&self) -> &Vec<(TypeId, Box<ProcessLock>)> {
         &self.processes
     }
+    #[inline]
     pub fn raw_mut(&mut self) -> &mut Vec<(TypeId, Box<ProcessLock>)> {
         &mut self.processes
     }
 
+    #[inline]
     pub fn iter(&mut self) -> Iter {
         Iter::new(self.processes.iter())
     }
+    #[inline]
     pub fn iter_mut(&mut self) -> IterMut {
         IterMut::new(self.processes.iter_mut())
     }
@@ -97,6 +105,7 @@ pub struct Iter<'a> {
     iter: slice::Iter<'a, (TypeId, Box<ProcessLock>)>,
 }
 impl<'a> Iter<'a> {
+    #[inline]
     fn new(iter: slice::Iter<'a, (TypeId, Box<ProcessLock>)>) -> Self {
         Iter {
             iter: iter,
@@ -106,6 +115,7 @@ impl<'a> Iter<'a> {
 impl<'a> Iterator for Iter<'a> {
     type Item = Box<ProcessLock>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(&(_, ref next)) => Some(next.clone_()),
@@ -119,6 +129,7 @@ pub struct IterMut<'a> {
     iter: slice::IterMut<'a, (TypeId, Box<ProcessLock>)>,
 }
 impl<'a> IterMut<'a> {
+    #[inline]
     fn new(iter: slice::IterMut<'a, (TypeId, Box<ProcessLock>)>) -> Self {
         IterMut {
             iter: iter,
@@ -128,6 +139,7 @@ impl<'a> IterMut<'a> {
 impl<'a> Iterator for IterMut<'a> {
     type Item = Box<ProcessLock>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(&mut (_, ref next)) => Some(next.clone_()),
@@ -138,7 +150,7 @@ impl<'a> Iterator for IterMut<'a> {
 
 
 pub trait ProcessLock: Any + Send + Sync {
-    fn run(&mut self, &RwLock<Components>, &RwLock<Entities>);
+    fn run(&mut self, &EntityManager);
     fn clone_(&self) -> Box<ProcessLock>;
     fn priority(&self) -> usize;
 }
@@ -146,12 +158,15 @@ pub trait ProcessLock: Any + Send + Sync {
 impl_any!(ProcessLock);
 
 impl<T: Process> ProcessLock for Arc<RwLock<T>> {
-    fn run(&mut self, components: &RwLock<Components>, entities: &RwLock<Entities>) {
-        self.write().unwrap().run(components, entities);
+    #[inline]
+    fn run(&mut self, entity_manager: &EntityManager) {
+        self.write().unwrap().run(entity_manager);
     }
+    #[inline]
     fn clone_(&self) -> Box<ProcessLock> {
         Box::new(self.clone())
     }
+    #[inline]
     fn priority(&self) -> usize {
         self.read().unwrap().priority()
     }
@@ -160,18 +175,14 @@ impl<T: Process> ProcessLock for Arc<RwLock<T>> {
 
 #[cfg(test)]
 mod test {
-    use std::sync::RwLock;
-
     use super::*;
-    use components::Components;
-    use entities::Entities;
 
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct SomeProcess;
 
     impl Process for SomeProcess {
-        fn run(&mut self, _: &RwLock<Components>, _: &RwLock<Entities>) {}
+        fn run(&mut self, _: &EntityManager) {}
     }
 
 

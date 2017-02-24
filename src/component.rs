@@ -1,8 +1,8 @@
 use std::any::Any;
 
-use manager::Manager;
+use super::component_manager::ComponentManager;
 
 
 pub trait Component: Sized + Any + Send + Sync {
-    type Manager: Manager<Self> + Any + Send + Sync;
+    type ComponentManager: ComponentManager<Self> + Any + Send + Sync;
 }

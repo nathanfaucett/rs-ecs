@@ -4,6 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use uuid::Uuid;
 
 
+#[inline]
 fn next_id() -> u64 {
     let mut hasher = DefaultHasher::new();
     Uuid::new_v4().hash(&mut hasher);
@@ -20,6 +21,7 @@ unsafe impl Send for Entity {}
 unsafe impl Sync for Entity {}
 
 impl Entity {
+    #[inline]
     pub fn new() -> Self {
         Entity {
             id: next_id(),

@@ -3,50 +3,51 @@ use std::sync::{Arc, RwLock};
 use thread_pool::ThreadPool;
 use waiter::Waiter;
 
-use components::Components;
-use entities::Entities;
-use processes::Processes;
+use super::entity_manager::EntityManager;
+use super::processes::Processes;
 
 
 pub struct Scene {
     thread_pool: ThreadPool,
-    components: Arc<RwLock<Components>>,
-    entities: Arc<RwLock<Entities>>,
+    entity_manager: EntityManager,
     processes: Arc<RwLock<Processes>>,
 }
 
 impl Scene {
+    #[inline]
     pub fn new() -> Arc<Self> {
         Arc::new(Scene {
             thread_pool: ThreadPool::new(),
-            components: Arc::new(RwLock::new(Components::new())),
-            entities: Arc::new(RwLock::new(Entities::new())),
+            entity_manager: EntityManager::new(),
             processes: Arc::new(RwLock::new(Processes::new())),
         })
     }
 
+    #[inline]
     pub fn thread_pool(&self) -> &ThreadPool { &self.thread_pool }
+    #[inline]
     pub fn thread_pool_mut(&mut self) -> &mut ThreadPool { &mut self.thread_pool }
 
-    pub fn components(&self) -> &RwLock<Components> { &*self.components }
-    pub fn entities(&self) -> &RwLock<Entities> { &*self.entities }
+    #[inline]
+    pub fn entity_manager(&self) -> &EntityManager { &self.entity_manager }
+    #[inline]
     pub fn processes(&self) -> &RwLock<Processes> { &*self.processes }
 
+    #[inline]
     pub fn init(&self) -> &Self{
         self.processes.write().unwrap().sort();
         self
     }
 
     pub fn update(&self) -> &Self{
-        let waiter = Waiter::new(self.processes.read().unwrap().len());
+        let waiter = Waiter::new_with_count(self.processes.read().unwrap().len());
 
         for mut process in self.processes.write().unwrap().iter_mut() {
-            let components = self.components.clone();
-            let entities = self.entities.clone();
+            let entity_manager = self.entity_manager.clone();
             let waiter = waiter.clone();
 
             let _ = self.thread_pool.run(move || {
-                process.run(&*components, &*entities);
+                process.run(&entity_manager);
                 waiter.done();
             });
         }
@@ -60,8 +61,6 @@ impl Scene {
 
 #[cfg(test)]
 mod test {
-    use std::sync::RwLock;
-
     use super::*;
     use process::Process;
 
@@ -85,8 +84,8 @@ mod test {
                 }
             }
             impl Process for $name {
-                fn run(&mut self, _: &RwLock<Components>, entities: &RwLock<Entities>) {
-                    let _ = entities.write().unwrap().create();
+                fn run(&mut self, entity_manager: &EntityManager) {
+                    let _ = entity_manager.create_entity();
                     self.count += 1;
                     self.done = self.count == FRAMES;
                 }
@@ -114,7 +113,7 @@ mod test {
         let scene = Scene::new();
 
         {
-            let mut p =scene.processes().write().unwrap();
+            let mut p = scene.processes().write().unwrap();
             p.insert(Process0::new());
             p.insert(Process1::new());
             p.insert(Process2::new());

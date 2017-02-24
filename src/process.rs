@@ -1,14 +1,11 @@
 use std::any::Any;
-use std::sync::RwLock;
 
-use components::Components;
-use entities::Entities;
+use super::entity_manager::EntityManager;
 
 
 pub trait Process: Any + Send + Sync {
-    
-    fn run(&mut self, &RwLock<Components>, &RwLock<Entities>);
-
+    fn run(&mut self, &EntityManager);
+    #[inline]
     fn priority(&self) -> usize {
         0usize
     }

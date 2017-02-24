@@ -1,11 +1,11 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use component::Component;
-use entity::Entity;
+use super::component::Component;
+use super::entity::Entity;
 
 
-pub trait Manager<T: Component>: Sized + Any + Send + Sync {
+pub trait ComponentManager<T: Component>: Sized + Any + Send + Sync {
 
     fn new() -> Self;
 
@@ -20,100 +20,114 @@ pub trait Manager<T: Component>: Sized + Any + Send + Sync {
 }
 
 
-pub struct MaskedManager<T: Component> {
-    inner: T::Manager,
+pub struct WrappedComponentManager<T: Component> {
+    inner: T::ComponentManager,
 }
 
-impl<T: Component> MaskedManager<T> {
-    pub fn new() -> MaskedManager<T> {
-        MaskedManager {
-            inner: Manager::new(),
+impl<T: Component> WrappedComponentManager<T> {
+    #[inline]
+    pub fn new() -> WrappedComponentManager<T> {
+        WrappedComponentManager {
+            inner: ComponentManager::new(),
         }
     }
-
+    #[inline]
     pub fn clear(&mut self) {
         self.inner.clear();
     }
-
+    #[inline]
     pub fn get(&self, entity: &Entity) -> Option<&T> {
         self.inner.get(entity)
     }
+    #[inline]
     pub fn get_mut(&mut self, entity: &Entity) -> Option<&mut T> {
         self.inner.get_mut(entity)
     }
-
+    #[inline]
     pub fn contains(&self, entity: &Entity) -> bool {
         self.inner.contains(entity)
     }
+    #[inline]
     pub fn insert(&mut self, entity: Entity, component: T) {
         self.inner.insert(entity, component);
     }
+    #[inline]
     pub fn remove(&mut self, entity: &Entity) -> Option<T> {
         self.inner.remove(entity)
     }
 }
 
-impl<T: Component> Drop for MaskedManager<T> {
+impl<T: Component> Drop for WrappedComponentManager<T> {
+    #[inline]
     fn drop(&mut self) {
         self.clear();
     }
 }
 
 
-pub struct HashMapManager<T: Component> {
+pub struct HashMapComponentManager<T: Component> {
     map: HashMap<Entity, T>,
 }
 
-impl<T: Component> Manager<T> for HashMapManager<T> {
+impl<T: Component> ComponentManager<T> for HashMapComponentManager<T> {
 
+    #[inline]
     fn new() -> Self {
-        HashMapManager {
+        HashMapComponentManager {
             map: HashMap::new(),
         }
     }
 
+    #[inline]
     fn clear(&mut self) {
         self.map.clear();
     }
 
+    #[inline]
     fn get(&self, entity: &Entity) -> Option<&T> {
         self.map.get(entity)
     }
+    #[inline]
     fn get_mut(&mut self, entity: &Entity) -> Option<&mut T> {
         self.map.get_mut(entity)
     }
 
+    #[inline]
     fn contains(&self, entity: &Entity) -> bool {
         self.map.contains_key(entity)
     }
+    #[inline]
     fn insert(&mut self, entity: Entity, component: T) {
         self.map.insert(entity, component);
     }
+    #[inline]
     fn remove(&mut self, entity: &Entity) -> Option<T> {
         self.map.remove(entity)
     }
 }
 
 
-pub struct VecManager<T: Component> {
+pub struct VecComponentManager<T: Component> {
     vec: Vec<(Entity, T)>,
 }
 
-impl<T: Component> VecManager<T> {
+impl<T: Component> VecComponentManager<T> {
     #[inline]
     fn index_of(&self, entity: &Entity) -> Option<usize> {
         self.vec.iter().position(|&(e, _)| &e == entity)
     }
 }
 
-impl<T: Component> Manager<T> for VecManager<T> {
+impl<T: Component> ComponentManager<T> for VecComponentManager<T> {
 
+    #[inline]
     fn new() -> Self {
-        VecManager {
+        VecComponentManager {
             vec: Vec::new(),
         }
     }
 
+    #[inline]
     fn clear(&mut self) {
         self.vec.clear();
     }
@@ -137,9 +151,11 @@ impl<T: Component> Manager<T> for VecManager<T> {
         }
     }
 
+    #[inline]
     fn contains(&self, entity: &Entity) -> bool {
         self.index_of(entity).is_some()
     }
+    #[inline]
     fn insert(&mut self, entity: Entity, component: T) {
         self.vec.push((entity, component));
     }

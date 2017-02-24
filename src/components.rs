@@ -2,81 +2,86 @@ use std::any::{Any, TypeId};
 use std::sync::RwLock;
 use std::collections::HashMap;
 
-use component::Component;
-use entity::Entity;
-use manager::MaskedManager;
+use super::component::Component;
+use super::entity::Entity;
+use super::component_manager::WrappedComponentManager;
 
 
 pub struct Components {
-    managers: HashMap<TypeId, Box<ManagerLock>>,
+    component_managers: HashMap<TypeId, Box<ComponentManagerLock>>,
 }
 
 unsafe impl Send for Components {}
 unsafe impl Sync for Components {}
 
 impl Components {
+    #[inline]
     pub fn new() -> Self {
         Components {
-            managers: HashMap::new(),
+            component_managers: HashMap::new(),
         }
     }
 
     pub fn register<T: Component>(&mut self) {
-        self.managers.insert(
+        self.component_managers.insert(
             TypeId::of::<T>(),
-            Box::new(RwLock::new(MaskedManager::<T>::new()))
+            Box::new(RwLock::new(WrappedComponentManager::<T>::new()))
         );
     }
+    #[inline]
     pub fn unregister<T: Component>(&mut self) {
-        self.managers.remove(&TypeId::of::<T>());
+        self.component_managers.remove(&TypeId::of::<T>());
     }
 
-    pub fn managers(&self) -> &HashMap<TypeId, Box<ManagerLock>> {
-        &self.managers
+    #[inline]
+    pub fn component_managers(&self) -> &HashMap<TypeId, Box<ComponentManagerLock>> {
+        &self.component_managers
     }
-    pub fn manager<T: Component>(&self) -> &RwLock<MaskedManager<T>> {
+    pub fn component_manager<T: Component>(&self) -> &RwLock<WrappedComponentManager<T>> {
         unsafe {
-            self.managers
+            self.component_managers
                 .get(&TypeId::of::<T>())
                 .expect("unregistered component use, make sure to register components.")
-                .downcast_ref_unchecked::<RwLock<MaskedManager<T>>>()
+                .downcast_ref_unchecked::<RwLock<WrappedComponentManager<T>>>()
         }
     }
 
+    #[inline]
     pub fn insert<T: Component>(&mut self, entity: Entity, component: T) {
-        match self.manager::<T>().write() {
-            Ok(mut manager) => manager.insert(entity, component),
-            Err(..) => (),
+        match self.component_manager::<T>().write() {
+            Ok(mut component_manager) => component_manager.insert(entity, component),
+            Err(..) => panic!("unregistered component inserted, make sure to register components."),
         }
     }
+    #[inline]
     pub fn remove<T: Component>(&mut self, entity: &Entity) -> Option<T> {
-        match self.manager::<T>().write() {
-            Ok(mut manager) => manager.remove(entity),
+        match self.component_manager::<T>().write() {
+            Ok(mut component_manager) => component_manager.remove(entity),
             Err(..) => None,
         }
     }
 }
 
 
-pub trait ManagerLock: Any + Send + Sync {}
+pub trait ComponentManagerLock: Any + Send + Sync {}
 
-impl_any!(ManagerLock);
+impl_any!(ComponentManagerLock);
 
-impl<T: Component> ManagerLock for RwLock<MaskedManager<T>> {}
+impl<T: Component> ComponentManagerLock for RwLock<WrappedComponentManager<T>> {}
 
 
 #[cfg(test)]
 mod test {
     use super::*;
     use entities::Entities;
-    use manager::HashMapManager;
+    use component_manager::HashMapComponentManager;
 
 
     #[derive(Debug, PartialEq, Eq)]
     pub struct SomeComponent;
 
     impl Component for SomeComponent {
-        type Manager = HashMapManager<Self>;
+        type ComponentManager = HashMapComponentManager<Self>;
     }
 
 
@@ -89,7 +94,7 @@ mod test {
         components.register::<SomeComponent>();
         components.insert(entity.clone(), SomeComponent);
 
-        let manager = components.manager::<SomeComponent>().read().unwrap();
-        assert_eq!(manager.get(&entity), Some(&SomeComponent));
+        let component_manager = components.component_manager::<SomeComponent>().read().unwrap();
+        assert_eq!(component_manager.get(&entity), Some(&SomeComponent));
     }
 }
