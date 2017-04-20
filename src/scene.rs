@@ -34,12 +34,12 @@ impl Scene {
     pub fn processes(&self) -> &RwLock<Processes> { &*self.processes }
 
     #[inline]
-    pub fn init(&self) -> &Self{
+    pub fn init(&self) -> &Self {
         self.processes.write().unwrap().sort();
         self
     }
 
-    pub fn update(&self) -> &Self{
+    pub fn update(&self) -> &Self {
         let waiter = Waiter::new_with_count(self.processes.read().unwrap().len());
 
         for mut process in self.processes.write().unwrap().iter_mut() {
@@ -48,11 +48,13 @@ impl Scene {
 
             let _ = self.thread_pool.run(move || {
                 process.run(&entity_manager);
-                waiter.done();
+                let _ = waiter.done();
             });
         }
 
-        waiter.wait();
+        let _ = waiter.wait();
+
+        self.entity_manager.update();
 
         self
     }

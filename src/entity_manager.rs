@@ -1,5 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockWriteGuard, RwLockReadGuard};
 
+use collection_traits::*;
+
 use super::component::Component;
 use super::components::Components;
 use super::entities::Entities;
@@ -68,5 +70,22 @@ impl EntityManager {
     #[inline]
     pub fn remove_component<T: Component>(&self, entity: &Entity) -> Option<T> {
         self.components_mut().remove::<T>(entity)
+    }
+
+    #[inline]
+    fn replace(&self) -> &Self {
+        let mut components = self.components_mut();
+        let mut component_managers = components.component_managers_mut();
+
+        for (_, component_manager) in component_managers.iter_mut() {
+            component_manager.replace();
+        }
+
+        self
+    }
+    #[inline]
+    pub fn update(&self) -> &Self {
+        self.replace();
+        self
     }
 }

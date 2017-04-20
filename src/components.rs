@@ -1,10 +1,12 @@
 use std::any::{Any, TypeId};
 use std::sync::RwLock;
-use std::collections::HashMap;
+
+use collection_traits::*;
+use hash_map::HashMap;
 
 use super::component::Component;
 use super::entity::Entity;
-use super::component_manager::WrappedComponentManager;
+use super::component_manager::{ComponentManager, WrappedComponentManager};
 
 
 pub struct Components {
@@ -37,6 +39,11 @@ impl Components {
     pub fn component_managers(&self) -> &HashMap<TypeId, Box<ComponentManagerLock>> {
         &self.component_managers
     }
+    #[inline]
+    pub fn component_managers_mut(&mut self) -> &mut HashMap<TypeId, Box<ComponentManagerLock>> {
+        &mut self.component_managers
+    }
+    #[inline]
     pub fn component_manager<T: Component>(&self) -> &RwLock<WrappedComponentManager<T>> {
         unsafe {
             self.component_managers
@@ -63,11 +70,20 @@ impl Components {
 }
 
 
-pub trait ComponentManagerLock: Any + Send + Sync {}
+pub trait ComponentManagerLock: Any + Send + Sync {
+    fn replace(&mut self);
+}
 
 impl_any!(ComponentManagerLock);
 
-impl<T: Component> ComponentManagerLock for RwLock<WrappedComponentManager<T>> {}
+impl<T: Component> ComponentManagerLock for RwLock<WrappedComponentManager<T>> {
+    fn replace(&mut self) {
+        match self.write() {
+            Ok(ref mut components) => components.replace(),
+            Err(_) => panic!("failed to replace components"),
+        }
+    }
+}
 
 
 #[cfg(test)]
@@ -95,6 +111,6 @@ mod test {
         components.insert(entity.clone(), SomeComponent);
 
         let component_manager = components.component_manager::<SomeComponent>().read().unwrap();
-        assert_eq!(component_manager.get(&entity), Some(&SomeComponent));
+        assert_eq!(component_manager.get(&entity).unwrap().as_ref(), &SomeComponent);
     }
 }

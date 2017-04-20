@@ -11,10 +11,15 @@ repository = "https://github.com/nathanfaucett/rs-ecs.git"
 homepage = "https://github.com/nathanfaucett/rs-ecs"
 
 [dependencies]
+atomic = {git = "https://github.com/nathanfaucett/rs-atomic.git"}
+collection_traits = {git = "https://github.com/nathanfaucett/rs-collection_traits.git"}
+hash_map = {git = "https://github.com/nathanfaucett/rs-hash_map.git"}
+hash_set = {git = "https://github.com/nathanfaucett/rs-hash_set.git"}
+impl_any = {git = "https://github.com/nathanfaucett/rs-impl_any.git"}
+thread_pool = {git = "https://github.com/nathanfaucett/rs-thread_pool.git"}
 uuid = { version = "0.3", features = ["v4"] }
-waiter = {git = "https://github.com/nathanfaucett/rs-waiter"}
-impl_any = {git = "https://github.com/nathanfaucett/rs-impl_any"}
-thread_pool = {git = "https://github.com/nathanfaucett/rs-thread_pool"}
+vector = {git = "https://github.com/nathanfaucett/rs-vector.git"}
+waiter = {git = "https://github.com/nathanfaucett/rs-waiter.git"}
 
 [dev-dependencies]
-num_cpus = { version = "1.2" }
+num_cpus = { version = "1.3" }

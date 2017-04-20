@@ -1,12 +1,13 @@
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
+
+use hash_map::DefaultHasher;
 
 use uuid::Uuid;
 
 
 #[inline]
 fn next_id() -> u64 {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = DefaultHasher::default();
     Uuid::new_v4().hash(&mut hasher);
     hasher.finish()
 }
@@ -21,7 +22,8 @@ unsafe impl Send for Entity {}
 unsafe impl Sync for Entity {}
 
 impl Entity {
-    #[inline]
+
+    #[inline(always)]
     pub fn new() -> Self {
         Entity {
             id: next_id(),
@@ -33,10 +35,17 @@ impl Entity {
 #[cfg(test)]
 mod test {
     extern crate num_cpus;
+    extern crate vector;
+    extern crate collection_traits;
+    extern crate std;
 
 
     use super::*;
-    use std::thread;
+
+    use self::std::thread;
+
+    use self::collection_traits::*;
+    use self::vector::Vector;
 
 
     static SIZE: usize = 1024usize;
@@ -45,11 +54,11 @@ mod test {
     #[test]
     fn test_entity_id() {
         let threads = num_cpus::get() - 1usize;
-        let mut handles = Vec::new();
+        let mut handles = Vector::new();
 
         for _ in 0..threads {
             handles.push(thread::spawn(move || {
-                let mut out = Vec::with_capacity(SIZE);
+                let mut out = Vector::with_capacity(SIZE);
                 for _ in 0..SIZE {
                     out.push(Entity::new());
                 }
@@ -57,7 +66,7 @@ mod test {
             }));
         }
 
-        let mut entities = Vec::with_capacity(SIZE * threads);
+        let mut entities = Vector::with_capacity(SIZE * threads);
         for handle in handles {
             for entity in handle.join().unwrap() {
                 entities.push(entity);

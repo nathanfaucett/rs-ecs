@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use collection_traits::*;
+use hash_set::HashSet;
 
 use super::entity::Entity;
 

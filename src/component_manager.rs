@@ -1,5 +1,10 @@
 use std::any::Any;
-use std::collections::HashMap;
+
+use atomic::Atomic;
+
+use collection_traits::*;
+use vector::Vector;
+use hash_map::HashMap;
 
 use super::component::Component;
 use super::entity::Entity;
@@ -11,12 +16,13 @@ pub trait ComponentManager<T: Component>: Sized + Any + Send + Sync {
 
     fn clear(&mut self);
 
-    fn get(&self, entity: &Entity) -> Option<&T>;
-    fn get_mut(&mut self, entity: &Entity) -> Option<&mut T>;
+    fn get(&self, entity: &Entity) -> Option<&Atomic<T>>;
 
     fn contains(&self, entity: &Entity) -> bool;
     fn insert(&mut self, entity: Entity, component: T);
     fn remove(&mut self, entity: &Entity) -> Option<T>;
+
+    fn replace(&mut self);
 }
 
 
@@ -24,36 +30,36 @@ pub struct WrappedComponentManager<T: Component> {
     inner: T::ComponentManager,
 }
 
-impl<T: Component> WrappedComponentManager<T> {
+impl<T: Component> ComponentManager<T> for WrappedComponentManager<T> {
     #[inline]
-    pub fn new() -> WrappedComponentManager<T> {
+    fn new() -> WrappedComponentManager<T> {
         WrappedComponentManager {
             inner: ComponentManager::new(),
         }
     }
     #[inline]
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         self.inner.clear();
     }
     #[inline]
-    pub fn get(&self, entity: &Entity) -> Option<&T> {
+    fn get(&self, entity: &Entity) -> Option<&Atomic<T>> {
         self.inner.get(entity)
     }
     #[inline]
-    pub fn get_mut(&mut self, entity: &Entity) -> Option<&mut T> {
-        self.inner.get_mut(entity)
-    }
-    #[inline]
-    pub fn contains(&self, entity: &Entity) -> bool {
+    fn contains(&self, entity: &Entity) -> bool {
         self.inner.contains(entity)
     }
     #[inline]
-    pub fn insert(&mut self, entity: Entity, component: T) {
+    fn insert(&mut self, entity: Entity, component: T) {
         self.inner.insert(entity, component);
     }
     #[inline]
-    pub fn remove(&mut self, entity: &Entity) -> Option<T> {
+    fn remove(&mut self, entity: &Entity) -> Option<T> {
         self.inner.remove(entity)
+    }
+    #[inline]
+    fn replace(&mut self) {
+        self.inner.replace();
     }
 }
 
@@ -66,7 +72,7 @@ impl<T: Component> Drop for WrappedComponentManager<T> {
 
 
 pub struct HashMapComponentManager<T: Component> {
-    map: HashMap<Entity, T>,
+    map: HashMap<Entity, Atomic<T>>,
 }
 
 impl<T: Component> ComponentManager<T> for HashMapComponentManager<T> {
@@ -84,12 +90,8 @@ impl<T: Component> ComponentManager<T> for HashMapComponentManager<T> {
     }
 
     #[inline]
-    fn get(&self, entity: &Entity) -> Option<&T> {
+    fn get(&self, entity: &Entity) -> Option<&Atomic<T>> {
         self.map.get(entity)
-    }
-    #[inline]
-    fn get_mut(&mut self, entity: &Entity) -> Option<&mut T> {
-        self.map.get_mut(entity)
     }
 
     #[inline]
@@ -98,17 +100,26 @@ impl<T: Component> ComponentManager<T> for HashMapComponentManager<T> {
     }
     #[inline]
     fn insert(&mut self, entity: Entity, component: T) {
-        self.map.insert(entity, component);
+        self.map.insert(entity, Atomic::new(component));
     }
     #[inline]
     fn remove(&mut self, entity: &Entity) -> Option<T> {
-        self.map.remove(entity)
+        match self.map.remove(entity) {
+            Some(component) => Some(component.take()),
+            None => None,
+        }
+    }
+    #[inline]
+    fn replace(&mut self) {
+        for (_, component) in self.map.iter_mut() {
+            component.replace()
+        }
     }
 }
 
 
 pub struct VecComponentManager<T: Component> {
-    vec: Vec<(Entity, T)>,
+    vec: Vector<(Entity, Atomic<T>)>,
 }
 
 impl<T: Component> VecComponentManager<T> {
@@ -123,7 +134,7 @@ impl<T: Component> ComponentManager<T> for VecComponentManager<T> {
     #[inline]
     fn new() -> Self {
         VecComponentManager {
-            vec: Vec::new(),
+            vec: Vector::new(),
         }
     }
 
@@ -132,19 +143,11 @@ impl<T: Component> ComponentManager<T> for VecComponentManager<T> {
         self.vec.clear();
     }
 
-    fn get(&self, entity: &Entity) -> Option<&T> {
+    #[inline]
+    fn get(&self, entity: &Entity) -> Option<&Atomic<T>> {
         match self.index_of(entity) {
             Some(index) => {
                 let &(_, ref component) = unsafe { self.vec.get_unchecked(index) };
-                Some(component)
-            },
-            None => None,
-        }
-    }
-    fn get_mut(&mut self, entity: &Entity) -> Option<&mut T> {
-        match self.index_of(entity) {
-            Some(index) => {
-                let &mut (_, ref mut component) = unsafe { self.vec.get_unchecked_mut(index) };
                 Some(component)
             },
             None => None,
@@ -157,15 +160,21 @@ impl<T: Component> ComponentManager<T> for VecComponentManager<T> {
     }
     #[inline]
     fn insert(&mut self, entity: Entity, component: T) {
-        self.vec.push((entity, component));
+        self.vec.push((entity, Atomic::new(component)));
     }
     fn remove(&mut self, entity: &Entity) -> Option<T> {
         match self.index_of(entity) {
             Some(index) => {
                 let (_, component) = self.vec.remove(index);
-                Some(component)
+                Some(component.take())
             },
             None => None,
+        }
+    }
+    #[inline]
+    fn replace(&mut self) {
+        for &mut (_, ref mut component) in self.vec.iter_mut() {
+            component.replace()
         }
     }
 }

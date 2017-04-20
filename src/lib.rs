@@ -1,11 +1,15 @@
 #![feature(get_type_id)]
 
 
-#[macro_use]
-extern crate impl_any;
+extern crate atomic;
+extern crate collection_traits;
+#[macro_use] extern crate impl_any;
 extern crate uuid;
+extern crate hash_map;
+extern crate hash_set;
 extern crate waiter;
 extern crate thread_pool;
+extern crate vector;
 
 
 mod component_manager;
@@ -15,8 +19,6 @@ mod components;
 mod entities;
 mod entity_manager;
 mod entity;
-
-mod hierarchy;
 
 mod process;
 mod processes;
@@ -31,8 +33,6 @@ pub use self::components::Components;
 pub use self::entities::Entities;
 pub use self::entity_manager::EntityManager;
 pub use self::entity::Entity;
-
-pub use self::hierarchy::Hierarchy;
 
 pub use self::process::Process;
 pub use self::processes::Processes;

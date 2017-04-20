@@ -2,12 +2,15 @@ use std::any::{Any, TypeId};
 use std::sync::{Arc, RwLock};
 use std::slice;
 
+use collection_traits::*;
+use vector::Vector;
+
 use super::process::Process;
 use super::entity_manager::EntityManager;
 
 
 pub struct Processes {
-    processes: Vec<(TypeId, Box<ProcessLock>)>,
+    processes: Vector<(TypeId, Box<ProcessLock>)>,
 }
 
 unsafe impl Send for Processes {}
@@ -17,7 +20,7 @@ impl Processes {
     #[inline]
     pub fn new() -> Self {
         Processes {
-            processes: Vec::new(),
+            processes: Vector::new(),
         }
     }
 
@@ -82,11 +85,11 @@ impl Processes {
     }
 
     #[inline]
-    pub fn raw(&self) -> &Vec<(TypeId, Box<ProcessLock>)> {
+    pub fn raw(&self) -> &Vector<(TypeId, Box<ProcessLock>)> {
         &self.processes
     }
     #[inline]
-    pub fn raw_mut(&mut self) -> &mut Vec<(TypeId, Box<ProcessLock>)> {
+    pub fn raw_mut(&mut self) -> &mut Vector<(TypeId, Box<ProcessLock>)> {
         &mut self.processes
     }
 
@@ -118,7 +121,7 @@ impl<'a> Iterator for Iter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
-            Some(&(_, ref next)) => Some(next.clone_()),
+            Some(&(_, ref next)) => Some(next.clone_as_box()),
             None => None,
         }
     }
@@ -142,7 +145,7 @@ impl<'a> Iterator for IterMut<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
-            Some(&mut (_, ref next)) => Some(next.clone_()),
+            Some(&mut (_, ref next)) => Some(next.clone_as_box()),
             None => None,
         }
     }
@@ -151,7 +154,7 @@ impl<'a> Iterator for IterMut<'a> {
 
 pub trait ProcessLock: Any + Send + Sync {
     fn run(&mut self, &EntityManager);
-    fn clone_(&self) -> Box<ProcessLock>;
+    fn clone_as_box(&self) -> Box<ProcessLock>;
     fn priority(&self) -> usize;
 }
 
@@ -163,7 +166,7 @@ impl<T: Process> ProcessLock for Arc<RwLock<T>> {
         self.write().unwrap().run(entity_manager);
     }
     #[inline]
-    fn clone_(&self) -> Box<ProcessLock> {
+    fn clone_as_box(&self) -> Box<ProcessLock> {
         Box::new(self.clone())
     }
     #[inline]
